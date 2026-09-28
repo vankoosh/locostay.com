@@ -1,100 +1,86 @@
 # LocoStay — Technical Architecture
 
-> **Status:** Draft v0.1 · **Last updated:** 2026-07-13 · **Owner:** Mario Nano
-> This document records the *technical* decisions for LocoStay and the reasoning
-> behind them. It is a living record: when a decision changes, update the
-> relevant section and add an entry to the Decision Log at the bottom.
+> **Status:** Draft v0.2 · **Last updated:** 2026-09-28 · **Owner:** Mario Nano
+> Records LocoStay's technical decisions and their reasoning. When a decision
+> changes, update the relevant section and add an entry to the Decision Log.
 
 ---
 
 ## 1. Product in one paragraph
 
 LocoStay is a **curated, editorial, SEO-first catalog** of unusual and
-work-friendly places to stay — lighthouses, igloos above the Arctic Circle,
-treehouses, designer cottages, tiny homes, and digital-nomad / work-vacation
-bases. It is **not** an OTA. LocoStay does **not** process bookings or payments;
-it discovers and presents properties and sends visitors *outward* to book
-(Booking.com affiliate links or the owner's own booking engine). Revenue comes
-from a thin stack of channels layered on top of content (see §3). It launches as
-a solo project and is architected so a small team of coders can take it over
-later.
+work-friendly places to stay — lighthouses, Arctic igloos, treehouses, designer
+cottages, tiny homes, digital-nomad bases. It is **not** an OTA: it holds no
+bookings or payments and sends visitors *outward* to book (Booking.com affiliate
+links or the owner's own booking engine). Solo project at launch, structured so a
+small team can take it over later.
 
 ---
 
 ## 2. Guiding constraints
 
-These constraints drove every decision below.
-
 | # | Constraint | Consequence |
 |---|-----------|-------------|
-| C1 | **SEO is existential.** With no owned transaction, organic discovery *is* the product. | Server-rendered, fully-indexable HTML is mandatory. |
-| C2 | **No payments, no bookings held.** Money and calendars live on Booking.com / the owner's engine. | No payment engine, no escrow, no calendar-truth problem. Monetization = flags on a listing. |
-| C3 | **Solo founder, months-scale timeline, ≤ a few hundred €/mo.** | Low-ops, cheap hosting; minimize moving parts. |
-| C4 | **Editor-friendly content authoring** (non-technical editors, e.g. copywriter). | A real CMS admin UI is required, not a code-first content store. |
-| C5 | **Founder expertise: Craft CMS, Twig, SCSS, TS/JS, Git.** | Prefer tools that reuse this skill set to ship fast solo. |
-| C6 | **Host is cyon.ch** (Swiss PHP/LAMP shared hosting). | No persistent Node.js process available → **no SSR JS frontend** can run here. |
-| C7 | **English-only at launch; scalable to a team later.** | No i18n now; clean, documented, conventional codebase. |
+| C1 | **SEO is existential.** Organic discovery *is* the product. | Every content page is delivered as full, indexable HTML. |
+| C2 | **No payments, no bookings held.** | No payment engine, no calendar-truth problem. Monetization = flags on a listing. |
+| C3 | **Solo founder, near-zero budget.** | Free tiers, managed hosting, minimal moving parts. |
+| C4 | **Founder is the only author.** | Content lives as Markdown in Git; no CMS. |
+| C5 | **A mobile app may follow later.** | Data access goes through one typed layer so an API can be added without a rewrite. |
+| C6 | **English-only at launch.** | No i18n now. |
 
 ---
 
 ## 3. Business model → data implications
 
-All monetization is realized as **fields/flags on content that the founder
-toggles manually in v1** — no host self-service, no host logins, no payments.
+All monetization is **frontmatter fields the founder edits manually** — no host
+self-service, no host logins, no payments.
 
 | Channel | Mechanism | Data impact |
 |--------|-----------|-------------|
-| Booking.com affiliate commission | Outbound affiliate deep link | `bookingUrl`, `bookingMode = affiliate` |
-| "Direct to owner's booking engine" (paid upgrade) | Owner pays to bypass OTA fees | `bookingMode = direct`, `bookingUrl` = owner engine |
-| Verified badge (paid) | Trust marker on listing | `isVerified` |
-| Sponsored in-depth review | Editorial article driving traffic to a property | Review/Article entry linked to Listing |
-| Featured / placement (paid) | Priority position in listings | `isFeatured` / weight |
-| One elegant ad slot (maybe) | Single non-intrusive placement | Deferred; global setting |
+| Booking.com affiliate commission | Outbound affiliate deep link | `bookingUrl`, `bookingMode: affiliate` |
+| Direct to owner's booking engine (paid) | Owner pays to bypass OTA fees | `bookingMode: direct`, `bookingUrl` = owner engine |
+| Verified badge (paid) | Trust marker | `isVerified` |
+| Sponsored in-depth review | Article driving traffic to a property | Article references listing `id` |
+| Featured placement (paid) | Priority position | `featuredWeight` |
+| One ad slot (maybe) | Single non-intrusive placement | Deferred; site config |
 
-**Design rule:** the monetization model must never compromise the clean,
-uncluttered visual feel. No ad clutter, no clickbait patterns.
+**Design rule:** monetization must never compromise the clean visual feel. No ad
+clutter, no clickbait patterns.
 
 ---
 
-## 4. Chosen architecture — Traditional Craft + Twig monolith on cyon
-
-**Decision:** Build LocoStay as a **server-rendered Craft CMS site**, with
-**Twig** templates rendering HTML directly, styled with **SCSS**, hosted on
-**cyon.ch**. No decoupled/headless JS frontend.
+## 4. Architecture — Angular (hybrid rendering) + Markdown content on Netlify
 
 ```
-                    ┌─────────────────────────────────────────┐
-                    │                cyon.ch                    │
-                    │            (PHP / LAMP shared)            │
-                    │                                           │
-   visitor ──────►  │   Craft CMS  ──►  Twig templates  ──► HTML│ ──► browser
-                    │      │                                    │
-                    │      ├── MySQL / MariaDB (content DB)      │
-                    │      └── local assets / images            │
-                    └───────────────────┬───────────────────────┘
-                                        │  outbound links
-                                        ▼
-                        Booking.com (affiliate)  /  owner booking engine
-
-   In front of everything:  Cloudflare (DNS, CDN, TLS, caching) — free tier
+  Git repo: content/**/*.md + Angular app
+        │ git push
+        ▼
+  Netlify build:  validate frontmatter (Zod) → content JSON → ng build (prerender)
+        │
+        ▼
+  ┌─────────────────── Netlify ───────────────────┐
+  │ CDN       prerendered HTML / JS / CSS         │ ──► browser
+  │ Function  Angular SSR for dynamic routes      │
+  │ Image CDN resize + WebP/AVIF  ◄───────────────┼── Cloudflare R2 (originals)
+  └───────────────────────────────────────────────┘
+        │ outbound links
+        ▼
+  Booking.com (affiliate) / owner booking engine
 ```
 
-### Why this over a headless SPA (Angular/Next)
-- **Solves C1 + C6 at once:** Craft renders full HTML server-side in PHP — perfect
-  SEO, and it runs natively on cyon. A JS SPA would need SSR → a Node server cyon
-  cannot provide. Static prerendering was rejected (rebuild-on-every-edit does not
-  scale for a growing catalog).
-- **Maximizes founder velocity (C5):** Twig + SCSS + Craft are existing expertise.
-- **Fewest moving parts (C3):** one codebase, one host, one bill, one deploy.
-- **A content catalog barely needs SPA interactivity.** The little that's needed
-  (filters, later a map) is added with light vanilla JS / Alpine / htmx.
+- **Rendering:** route-level render modes (`app.routes.server.ts`).
+  - *Prerender* — listing, region, type and article pages (the bulk of the site).
+  - *Server* — only routes that can't be enumerated at build time (e.g. filtered search).
+- **Content pipeline:** a build script parses `content/**/*.md`, validates
+  frontmatter with Zod (fails the build on missing fields or broken references),
+  and emits typed JSON. The app, prerenderer and SSR function all read that JSON —
+  no filesystem access at request time.
+- **Data access:** components never touch content directly; they call a typed
+  repository (`getListings(filter)`, `getListing(slug)`). Swapping files for an
+  API or database later only changes the repository.
 
-### Rejected alternatives
-- **Angular / Next.js SPA on cyon** — impossible without a Node runtime; SSR won't run.
-  Angular additionally is outside the founder's skill set. AngularJS (1.x) is EOL.
-- **Headless Craft (cyon) + Next.js on Vercel** — viable and more scalable, but adds a
-  second system/host for a solo dev with no v1 benefit. Kept as a **future migration
-  path** if rich interactivity is ever needed.
+**Why:** full HTML for SEO (C1), zero database/CMS ops (C3, C4), free hosting (C3),
+and a clean seam for a future API (C5).
 
 ---
 
@@ -102,88 +88,88 @@ uncluttered visual feel. No ad clutter, no clickbait patterns.
 
 | Layer | Choice | Notes |
 |------|--------|-------|
-| CMS / backend | **Craft CMS 5** (PHP 8.2+) | Editor-friendly admin (C4); founder expertise (C5). |
-| Templating | **Twig** (Craft native) | Server-rendered HTML (C1). |
-| Styling | **SCSS + CSS Modules-style scoping** | Founder preference; clean design system. |
-| Database | **MySQL / MariaDB** | Provided by cyon. |
-| SEO | **SEOmatic** (Craft plugin) | Meta tags, JSON-LD schema, sitemaps, redirects. |
-| Client-side interactivity | **Vanilla JS**, optionally Alpine.js / htmx | Filters now, map later. Kept minimal. |
-| Images | Craft native **asset transforms**; optional Cloudflare/R2 later | Photography-heavy; responsive transforms. |
-| Maps *(deferred)* | **MapLibre GL + OpenStreetMap** tiles | Store `lat`/`lng` on every listing now. |
-| Search *(deferred)* | Craft element queries now → Typesense/Meilisearch later | Not needed at tens–hundreds of listings. |
-| Analytics | **Plausible** or **Umami** | Privacy-friendly, lightweight; matches clean ethos. |
-| CDN / DNS / TLS | **Cloudflare** free tier | Caching, HTTPS, basic security in front of cyon. |
-| Build tooling | **Vite** (for SCSS/JS bundling) | Standard Craft front-end tooling. |
-| Version control | **Git** | Repo present. Deploy via SSH/Git to cyon. |
+| Framework | **Angular** (latest stable) + `@angular/ssr` | Hybrid prerender/SSR. |
+| Language | **TypeScript** | |
+| Styling | **SCSS**, Angular component-scoped styles | |
+| Content | **Markdown + YAML frontmatter** in Git | One file per entity. |
+| Validation | **Zod** | Frontmatter schemas = future API contract. |
+| Hosting | **Netlify** (free tier) | Angular runtime installed automatically; deploy on push; preview deploys per branch. |
+| Image storage | **Cloudflare R2** | 10 GB free, no egress fees. |
+| Image delivery | **Netlify Image CDN** | On-the-fly resize/format; R2 domain allowlisted in `netlify.toml`. |
+| SEO | Angular `Meta`/`Title`, JSON-LD, sitemap generated at build | Redirects via Netlify `_redirects`. |
+| Search / filtering | Client-side over build-time JSON index | Dedicated engine deferred. |
+| Maps *(deferred)* | **MapLibre GL + OpenStreetMap** | `lat`/`lng` stored on every listing now. |
+| Analytics | **Plausible** or **Umami** | Privacy-friendly, lightweight. |
 
 ---
 
-## 6. Content model (Craft sections & fields)
+## 6. Content model
 
-Craft terminology: **Sections** (Channel/Structure/Single) hold **Entries**;
-**Categories** are taxonomies; **Fields** are reusable.
+```
+content/
+  listings/{slug}.md
+  regions/{slug}.md
+  types/{slug}.md
+  articles/{slug}.md
+  owners/{slug}.md
+```
 
-### Listing (Channel section) — the core entity
-| Field | Type | Purpose |
-|------|------|---------|
-| `title` / `slug` | built-in | Name + URL. |
-| `type` | Category (Types taxonomy) | lighthouse, igloo, treehouse, tiny home, nomad base… |
-| `description` | rich text / Matrix | Editorial body. |
-| `location` | lat/lng + region ref + country | Geo for map (deferred UI) + SEO. |
-| `priceRange` | dropdown/number | Indicative price band. |
-| `amenities` | Category/multi-select | Incl. nomad-specific: fast wifi, desk, monitor, coworking nearby. |
-| `gallery` | Assets | Hero + gallery photography. |
-| `bookingUrl` | URL | Outbound affiliate or direct engine link. |
-| `bookingMode` | dropdown | `affiliate` \| `direct`. |
-| `isVerified` | lightswitch | Paid verified badge. |
-| `isFeatured` | lightswitch / weight | Paid placement. |
-| `icalUrl` *(deferred)* | URL | Optional read-only availability sync, later. |
-| `owner` | Entry relation | Link to Owner record. |
+Filename = slug. Every entity also has a stable `id` (slugs may change; ids never
+do). References between files use `id`. Markdown body = editorial text.
 
-### Type (Category group)
-Taxonomy of stay categories. Powers category landing pages (SEO).
+### Listing (core entity)
 
-### Destination / Region (Structure section)
-Region/country pages ("stays in the Scottish Highlands") — SEO landing pages,
-each listing related to one.
+```yaml
+---
+id: lst_0001
+title: Lighthouse at Point X
+type: lighthouse            # → types/
+region: scottish-highlands  # → regions/
+location: { lat: 57.12, lng: -5.43, country: GB }
+priceRange: 3               # 1–5 band
+amenities: [fast-wifi, desk, sea-view]
+hero: listings/lighthouse-point-x/hero.jpg      # R2 path, not full URL
+gallery: [listings/lighthouse-point-x/01.jpg]
+bookingMode: affiliate      # affiliate | direct
+bookingUrl: https://…
+isVerified: false
+featuredWeight: 0
+owner: own_0001             # → owners/
+---
+Editorial description…
+```
 
-### Review / Article (Channel section)
-Editorial, SEO-optimized long-form content (the copywriter's work). Optionally
-linked to a Listing. Author field. Drives organic traffic.
+Image fields store **R2 paths**; the CDN base URL lives in config, so changing
+image provider is a one-line change.
 
-### Owner (Channel section)
-Light record in v1: name, contact, badge status. Grows into real accounts if the
-platform ever moves to self-service / payments.
+### Other entities
+- **Type** — stay category; powers category landing pages (SEO).
+- **Region** — destination landing pages ("stays in the Scottish Highlands").
+- **Article** — long-form editorial/sponsored review; optional `listing` reference.
+- **Owner** — name, contact, paid status. Internal only; never rendered.
 
 ---
 
 ## 7. Infrastructure & environments
 
-- **Production:** cyon.ch webhosting (PHP 8.2+, MySQL, SSH, Composer). Cloudflare in front.
-- **Local dev:** DDEV or Laravel Herd / native PHP + MySQL. Craft project config
-  (`config/project/`) tracked in Git for reproducible setup.
-- **Deploy:** Git-based deploy to cyon over SSH; run `composer install` + Craft
-  migrations (`craft up`) on deploy.
-- **Backups:** cyon backups + periodic DB dump; assets backed up separately.
-- **Estimated cost:** cyon plan + domain + Cloudflare (free) ≈ well under a few
-  hundred €/mo (C3). ✅
-- ✅ **cyon confirmed suitable:** founder has run Craft projects of this kind on
-  cyon at a previous job. PHP 8.2+, MySQL, SSH, and Composer are available. No
-  further verification needed.
+- **Production:** Netlify, build triggered by push to `main`.
+- **Previews:** Netlify deploy previews for branches/PRs.
+- **Local dev:** Node LTS, `ng serve`.
+- **Backups:** content is versioned in Git; R2 bucket backed up separately.
+- **Cost:** Netlify free + R2 free + domain ≈ domain cost only (C3).
 
 ---
 
-## 8. Explicitly deferred (not in v1)
+## 8. Deferred (not in v1)
 
-Kept out of v1 to protect the solo timeline; the data model already accommodates them.
-
-- Interactive map UI (data captured now via `lat`/`lng`).
-- Live availability / iCal sync (unnecessary — LocoStay holds no bookings, so it
-  cannot double-book; purely a future UX nicety).
-- Dedicated search engine (Typesense/Meilisearch).
-- Payments, host self-service accounts, owner dashboards.
-- Multilingual / i18n.
-- Advertising slot.
+- Public API (static JSON → REST) and a database — triggered by a mobile app;
+  a database specifically once users write data (accounts, favourites).
+- Interactive map UI.
+- Availability / iCal sync (LocoStay holds no bookings, so it cannot double-book).
+- Dedicated search engine.
+- Payments, host self-service, owner dashboards.
+- i18n.
+- Ad slot.
 
 ---
 
@@ -191,11 +177,11 @@ Kept out of v1 to protect the solo timeline; the data model already accommodates
 
 | # | Item | Action |
 |---|------|--------|
-| ~~Q1~~ | ~~Does the chosen cyon plan satisfy Craft 5 requirements?~~ | **Resolved** — founder has run Craft on cyon before; requirements met. |
-| Q2 | **Booking.com affiliate** onboarding (direct vs via Travelpayouts) and link format. | Research during content-model build. |
-| Q3 | **Airbnb has no affiliate program** — inventory sourced from Airbnb earns nothing unless owner pays for placement. | Reflected in revenue model; monitor. |
-| Q4 | Shared-hosting limits (cron, memory, no long-running processes) may constrain Craft queue jobs / image processing. | Test early; consider Cloudflare/R2 for images if needed. |
-| Q5 | Rebuild path to headless (Option B) if rich interactivity is ever required. | Documented as future migration; not v1. |
+| Q1 | Booking.com affiliate onboarding (direct vs Travelpayouts) and link format. | Research during content-model build. |
+| Q2 | Airbnb has no affiliate program — Airbnb-sourced inventory earns nothing unless the owner pays for placement. | Monitor. |
+| Q3 | Netlify free-tier limits (build minutes, bandwidth, function invocations, image transforms). | Check usage monthly; mostly static traffic keeps it low. |
+| Q4 | Angular ramp-up: not part of founder's prior core stack. | Keep app simple; lean on prerendering. |
+| Q5 | Image setup (R2 + Netlify Image CDN) pending final confirmation vs Cloudinary. | Confirm before first listing is published. |
 
 ---
 
@@ -205,15 +191,18 @@ Kept out of v1 to protect the solo timeline; the data model already accommodates
 |------|----------|-----------|--------|
 | 2026-07-13 | Referral/discovery model, not OTA | No payments/calendar complexity; solo-viable | Accepted |
 | 2026-07-13 | Curated inventory, founder-authored | Avoids two-sided cold-start; higher quality | Accepted |
-| 2026-07-13 | No live availability sync in v1 | LocoStay holds no bookings → cannot double-book | Accepted |
+| 2026-07-13 | No live availability sync in v1 | Holds no bookings → cannot double-book | Accepted |
 | 2026-07-13 | SEO/editorial content is a first-class pillar | Only traffic channel in a referral model | Accepted |
-| 2026-07-13 | **Traditional Craft + Twig monolith on cyon (Option A)** | Solves SEO + host constraint; reuses founder skills; fewest moving parts | Accepted |
-| 2026-07-13 | SCSS for styling | Founder preference/expertise | Accepted |
-| 2026-07-13 | Rejected Angular/Next SPA on cyon | No Node runtime for SSR; SEO would break | Rejected |
+| 2026-07-13 | SCSS for styling | Founder preference | Accepted |
 | 2026-07-13 | English-only, i18n deferred | Simplicity at launch | Accepted |
+| 2026-07-13 | Craft CMS + Twig monolith on cyon | — | Superseded 2026-09-28 |
+| 2026-09-28 | Angular with hybrid prerender/SSR | Full HTML for SEO; Node hosting now allowed | Accepted |
+| 2026-09-28 | Markdown files in Git, no CMS, no database | Sole author; zero ops; scale fits. SQLite rejected: binary (no Git diffs), poor for prose, no persistent writes on Netlify | Accepted |
+| 2026-09-28 | Netlify hosting (free tier) | Free, commercial use allowed, native Angular SSR | Accepted |
+| 2026-09-28 | Images on CDN (R2 + Netlify Image CDN) | Keeps repo light; no egress fees | Accepted (see Q5) |
+| 2026-09-28 | No GraphQL; API deferred until a mobile app exists | One client, file-based content | Accepted |
+| 2026-09-28 | Typed repository layer + Zod schemas | Seam for future API/database | Accepted |
 
 ---
 
-*Next documents to produce: Product Requirements (PRD) and a phased Roadmap /
-build plan. This architecture record should be revisited whenever a Decision Log
-entry changes.*
+*Next: Product Requirements (PRD) and a phased build plan.*
