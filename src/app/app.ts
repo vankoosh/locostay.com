@@ -1,12 +1,17 @@
-import { Component, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component } from '@angular/core';
+import { Layout } from './layout/layout';
+import { Navbar } from './components/navbar/navbar';
+import { Footer } from './components/footer/footer';
 
 @Component({
-  imports: [RouterOutlet],
-  selector: 'app-root',
-  styleUrl: './app.scss',
-  templateUrl: './app.html',
+  imports: [Layout, Navbar, Footer],
+  selector: 'loco-root',
+  styles: ``,
+  template: `
+    <loco-navbar/>
+    <loco-layout/>
+    <loco-footer/>
+  `
 })
 export class App {
-  protected readonly title = signal('locostay.com');
 }
