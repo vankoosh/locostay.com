@@ -1,14 +1,22 @@
-import { Component, input } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 
 @Component({
   imports: [],
   selector: 'hero',
   styles: ``,
   template: `
-    <p>{{ title() }}</p>
+    <p (click)="reactToClick($event)">{{ title() }}</p>
+    <p (mouseenter)="hovered.emit()">Hover this element</p>
   `
 })
 
 export class Hero {
   title = input<String>('')
+
+  hovered = output<void>()
+
+  reactToClick($: MouseEvent) {
+    const element = $.target as HTMLElement
+    console.log(element.textContent)
+  }
 }

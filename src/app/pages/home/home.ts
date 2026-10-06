@@ -6,13 +6,19 @@ import { Hero } from "../../components/hero/hero";
   selector: 'home',
   styles: ``,
   template: `
-    <hero [title]="titleFromHome()"/>
+    <hero [title]="titleFromHome()" (hovered)="hoveredElement()"/>
     <h1>Home</h1>
     <p>This is home page</p>
   `
 })
+
 export class Home {
   readonly titleFromHome = signal('locostay.com');
+
+  hoveredElement() {
+    console.log('hovered')
+  }
+
   headings = signal(['Home', 'About', 'Contact']);
   readonly links = signal([
     { title: 'Explore the Docs', link: 'https://angular.dev' },
