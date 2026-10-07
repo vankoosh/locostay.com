@@ -12,6 +12,10 @@
     "experimentalDecorators": true,
     "importHelpers": true,
     "target": "ES2022",
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
     "module": "preserve"
   },
   "angularCompilerOptions": {
@@ -20,13 +24,13 @@
     "strictInputAccessModifiers": true
   },
   "files": [
-"src/main.ts",
-"src/main.server.ts",
-"src/server.ts",
-"src/app/app.config.ts",
-"src/app/app.ts",
-		"src/app/app.config.server.ts",
-	],
+    "src/main.ts",
+    "src/main.server.ts",
+    "src/server.ts",
+    "src/app/app.config.ts",
+    "src/app/app.ts",
+    "src/app/app.config.server.ts"
+  ],
   "references": [
     {
       "path": "./tsconfig.app.json"
