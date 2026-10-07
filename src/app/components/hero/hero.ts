@@ -11,7 +11,7 @@ import { Component, input, output } from '@angular/core';
 })
 
 export class Hero {
-  title = input<String>('')
+  title = input<string>('')
 
   hovered = output<void>()
 

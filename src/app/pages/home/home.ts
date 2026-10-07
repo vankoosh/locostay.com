@@ -1,14 +1,16 @@
 import { Component, signal } from '@angular/core';
 import { Hero } from "../../components/hero/hero";
+import { RouterLink } from '@angular/router';
 
 @Component({
-  imports: [Hero],
+  imports: [Hero, RouterLink],
   selector: 'home',
   styles: ``,
   template: `
     <hero [title]="titleFromHome()" (hovered)="hoveredElement()"/>
     <h1>Home</h1>
     <p>This is home page</p>
+    <p routerLink="/about">Go to About page</p>
   `
 })
 
