@@ -4,9 +4,10 @@ import { RouterLink } from "@angular/router";
 import { LinksService } from "../../services/links.service";
 import { Post } from "../../models/post.model";
 import { catchError } from 'rxjs';
+import { CheckboxItem } from "../../components/checkbox-item/checkbox-item";
 
 @Component({
-  imports: [Hero, RouterLink],
+  imports: [Hero, RouterLink, CheckboxItem],
   selector: 'about',
   styles: ``,
   template: `
@@ -15,8 +16,11 @@ import { catchError } from 'rxjs';
     <p (mouseenter)="showLinkInConsole()"> This is an about page</p>
     <h2 routerLink="/">Go to Home</h2>
     <p>Following are the urls</p>
-    @for (url of postsFromApi(); track $index) {
-      <p>{{ url.title }}</p>
+    @if (isLoading()) {
+      <h1>Loading...</h1>
+    }
+    @for (post of postsFromApi(); track $index) {
+      <checkbox-item id="checkbox-{{post.id}}" [postItem]="post"/>
     }
   `
 })
@@ -25,22 +29,26 @@ export class About implements OnInit {
   linksService = inject(LinksService);
   links = signal<string[]>([''])
   postsFromApi = signal<Post[]>([])
+  isLoading = signal(true)
 
   ngOnInit(): void {
+    console.log('About ngOnInit, loading:', this.isLoading());
+
     this.links.set(this.linksService.apiUrl)
     this.linksService.postsFromApi()
       .pipe(catchError((err) => {
         console.error(err);
+        this.isLoading.set(false)
         throw err;
       }))
       .subscribe(posts => {
         this.postsFromApi.set(posts.slice(0, 10))
+        this.isLoading.set(false)
       })
     console.log(this.links());
   }
 
   showLinkInConsole(): void {
     console.log(this.links());
-    2
   }
 }

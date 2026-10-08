@@ -1,16 +1,25 @@
 import { Component, signal } from '@angular/core';
 import { Hero } from "../../components/hero/hero";
 import { RouterLink } from '@angular/router';
+import { CheckboxItem } from "../../components/checkbox-item/checkbox-item";
 
 @Component({
-  imports: [Hero, RouterLink],
+  imports: [Hero, RouterLink, CheckboxItem],
   selector: 'home',
-  styles: ``,
+  styles: `
+    .home {
+      background-color: lightcoral;
+    }
+  `,
   template: `
-    <hero [title]="titleFromHome()" (hovered)="hoveredElement()"/>
-    <h1>Home</h1>
-    <p>This is home page</p>
-    <p routerLink="/about">Go to About page</p>
+    <div class="home">
+      <hero [title]="titleFromHome()" (hovered)="hoveredElement()"/>
+      <h1>This is the Home page component</h1>
+      <h1>Home</h1>
+      <p>This is home page</p>
+      <p routerLink="/about">Go to About page</p>
+      <checkbox-item/>
+    </div>
   `
 })
 

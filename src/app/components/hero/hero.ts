@@ -3,10 +3,19 @@ import { Component, input, output } from '@angular/core';
 @Component({
   imports: [],
   selector: 'hero',
-  styles: ``,
+  styles: `
+    .hero {
+      background-color: red
+    }
+
+    ;
+  `,
   template: `
-    <p (click)="reactToClick($event)">{{ title() }}</p>
-    <p (mouseenter)="hovered.emit()">Hover this element</p>
+    <div class="hero">
+      <h1>This is a hero component</h1>
+      <p (click)="reactToClick($event)">{{ title() }}</p>
+      <p (mouseenter)="hovered.emit()">Hover this element</p>
+    </div>
   `
 })
 
