@@ -14,7 +14,7 @@ import { Component, input, output } from '@angular/core';
     <div class="hero">
       <h1>This is a hero component</h1>
       <p (click)="reactToClick($event)">{{ title() }}</p>
-      <p (mouseenter)="hovered.emit()">Hover this element</p>
+      <p (mouseenter)="hovered.emit($event)">Hover this element</p>
     </div>
   `
 })
@@ -22,7 +22,7 @@ import { Component, input, output } from '@angular/core';
 export class Hero {
   title = input<string>('')
 
-  hovered = output<void>()
+  hovered = output<MouseEvent>()
 
   reactToClick($: MouseEvent) {
     const element = $.target as HTMLElement

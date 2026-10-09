@@ -9,19 +9,25 @@ import { CheckboxItem } from "../../components/checkbox-item/checkbox-item";
 @Component({
   imports: [Hero, RouterLink, CheckboxItem],
   selector: 'about',
-  styles: ``,
+  styles: `
+    .about-page {
+      display: flex;
+      flex-direction: column;
+    }`,
   template: `
-    <hero/>
-    <h1>About</h1>
-    <p (mouseenter)="showLinkInConsole()"> This is an about page</p>
-    <h2 routerLink="/">Go to Home</h2>
-    <p>Following are the urls</p>
-    @if (isLoading()) {
-      <h1>Loading...</h1>
-    }
-    @for (post of postsFromApi(); track $index) {
-      <checkbox-item id="checkbox-{{post.id}}" [postItem]="post"/>
-    }
+    <div class="about-page">
+      <hero/>
+      <h1>About</h1>
+      <p (mouseenter)="showLinkInConsole()"> This is an about page</p>
+      <h2 routerLink="/">Go to Home</h2>
+      <p>Following are the urls</p>
+      @if (isLoading()) {
+        <h1>Loading...</h1>
+      }
+      @for (post of postsFromApi(); track post.id) {
+        <checkbox-item [postItem]="post" (isChecked)="togglePost($event)"/>
+      }
+    </div>
   `
 })
 
@@ -32,8 +38,6 @@ export class About implements OnInit {
   isLoading = signal(true)
 
   ngOnInit(): void {
-    console.log('About ngOnInit, loading:', this.isLoading());
-
     this.links.set(this.linksService.apiUrl)
     this.linksService.postsFromApi()
       .pipe(catchError((err) => {
@@ -42,10 +46,16 @@ export class About implements OnInit {
         throw err;
       }))
       .subscribe(posts => {
+        posts = posts.map(post => ({ ...post, completed: false }));
         this.postsFromApi.set(posts.slice(0, 10))
         this.isLoading.set(false)
       })
-    console.log(this.links());
+  }
+
+  togglePost(post: Post): void {
+    this.postsFromApi.update(posts =>
+      posts.map(p => p.id === post.id ? { ...p, completed: !p.completed } : p)
+    )
   }
 
   showLinkInConsole(): void {

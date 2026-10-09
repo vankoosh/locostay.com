@@ -1,10 +1,9 @@
 import { Component, signal } from '@angular/core';
 import { Hero } from "../../components/hero/hero";
 import { RouterLink } from '@angular/router';
-import { CheckboxItem } from "../../components/checkbox-item/checkbox-item";
 
 @Component({
-  imports: [Hero, RouterLink, CheckboxItem],
+  imports: [Hero, RouterLink],
   selector: 'home',
   styles: `
     .home {
@@ -13,12 +12,11 @@ import { CheckboxItem } from "../../components/checkbox-item/checkbox-item";
   `,
   template: `
     <div class="home">
-      <hero [title]="titleFromHome()" (hovered)="hoveredElement()"/>
+      <hero [title]="titleFromHome()" (hovered)="hoveredElement($event)"/>
       <h1>This is the Home page component</h1>
       <h1>Home</h1>
       <p>This is home page</p>
       <p routerLink="/about">Go to About page</p>
-      <checkbox-item/>
     </div>
   `
 })
@@ -26,8 +24,9 @@ import { CheckboxItem } from "../../components/checkbox-item/checkbox-item";
 export class Home {
   readonly titleFromHome = signal('locostay.com');
 
-  hoveredElement() {
-    console.log('hovered')
+  hoveredElement($event: MouseEvent) {
+    const el = $event.target as HTMLElement
+    console.log('hovered ' + el.textContent)
   }
 
   headings = signal(['Home', 'About', 'Contact']);
