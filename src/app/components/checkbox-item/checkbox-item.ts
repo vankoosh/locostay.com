@@ -19,7 +19,7 @@ import { HighlightElementDirective } from "../../directives/highlight-element-di
     <label
       highlightElementDirective
       for="checkbox-{{ postItem()?.id }}"
-      [isCompleted]="postItem()?.completed"
+      [isCompleted]="postItem().completed"
     >{{ postItem()?.title }}</label>
   `
 })
