@@ -5,9 +5,11 @@ import { LinksService } from "../../services/links.service";
 import { Post } from "../../models/post.model";
 import { catchError } from 'rxjs';
 import { CheckboxItem } from "../../components/checkbox-item/checkbox-item";
+import { FilterPostsPipe } from "../../pipes/filter-posts-pipe";
+import { FormsModule } from "@angular/forms";
 
 @Component({
-  imports: [Hero, RouterLink, CheckboxItem],
+  imports: [Hero, RouterLink, CheckboxItem, FilterPostsPipe, FormsModule],
   selector: 'about',
   styles: `
     .about-page {
@@ -24,7 +26,8 @@ import { CheckboxItem } from "../../components/checkbox-item/checkbox-item";
       @if (isLoading()) {
         <h1>Loading...</h1>
       }
-      @for (post of postsFromApi(); track post.id) {
+      <input type="text" [(ngModel)]="searchTerm">
+      @for (post of postsFromApi() | filterPosts : searchTerm(); track post.id) {
         <checkbox-item [postItem]="post" (isChecked)="togglePost($event)"/>
       }
     </div>
@@ -36,6 +39,7 @@ export class About implements OnInit {
   links = signal<string[]>([''])
   postsFromApi = signal<Post[]>([])
   isLoading = signal(true)
+  searchTerm = signal('')
 
   ngOnInit(): void {
     this.links.set(this.linksService.apiUrl)

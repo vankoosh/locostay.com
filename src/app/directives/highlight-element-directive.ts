@@ -9,8 +9,6 @@ export class HighlightElementDirective {
   el = inject(ElementRef)
 
   makeBoldEffect = effect(() => {
-    console.log('Effect triggered')
-
     if (this.isCompleted()) {
       this.el.nativeElement.classList.add('bold')
     } else {
